@@ -24,6 +24,10 @@ public struct VerseRow: Identifiable, Hashable, Sendable {
     public let heading: String?
     public let tagged: String?
     public var id: Int { ref.id }
+
+    public init(ref: VerseRef, text: String, heading: String?, tagged: String?) {
+        self.ref = ref; self.text = text; self.heading = heading; self.tagged = tagged
+    }
 }
 
 public struct StrongEntry: Hashable, Sendable {

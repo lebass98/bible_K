@@ -76,7 +76,10 @@ final class AppModel {
     var parallel: Bool { didSet { defaults.set(parallel, forKey: "parallel") } }
     var showStrongs: Bool { didSet { defaults.set(showStrongs, forKey: "showStrongs") } }
     var fontSize: Double { didSet { defaults.set(fontSize, forKey: "fontSize") } }
-    var serif: Bool { didSet { defaults.set(serif, forKey: "serif") } }
+    /// 본문 글꼴 (FontLibrary.system / .myungjo / 글꼴 패밀리 이름)
+    var fontFamily: String { didSet { defaults.set(fontFamily, forKey: "fontFamily") } }
+    /// 영어 역본 글꼴 (FontLibrary.sameAsBody면 본문 글꼴과 같음)
+    var latinFontFamily: String { didSet { defaults.set(latinFontFamily, forKey: "latinFontFamily") } }
     var lineSpacing: Double { didSet { defaults.set(lineSpacing, forKey: "lineSpacing") } }
     var showHeadings: Bool { didSet { defaults.set(showHeadings, forKey: "showHeadings") } }
     var showVerseNumbers: Bool { didSet { defaults.set(showVerseNumbers, forKey: "showVerseNumbers") } }
@@ -97,7 +100,10 @@ final class AppModel {
         parallel = defaults.bool(forKey: "parallel")
         showStrongs = defaults.bool(forKey: "showStrongs")
         fontSize = defaults.object(forKey: "fontSize") as? Double ?? 18
-        serif = defaults.object(forKey: "serif") as? Bool ?? true
+        // 예전 설정(명조/고딕 단추)에서 옮겨 옴
+        fontFamily = defaults.string(forKey: "fontFamily")
+            ?? ((defaults.object(forKey: "serif") as? Bool ?? true) ? FontLibrary.myungjo : FontLibrary.system)
+        latinFontFamily = defaults.string(forKey: "latinFontFamily") ?? FontLibrary.sameAsBody
         lineSpacing = defaults.object(forKey: "lineSpacing") as? Double ?? 6
         showHeadings = defaults.object(forKey: "showHeadings") as? Bool ?? true
         showVerseNumbers = defaults.object(forKey: "showVerseNumbers") as? Bool ?? true
@@ -120,9 +126,13 @@ final class AppModel {
 
     /// 본문 글꼴 (명조를 고르면 한글은 애플명조, 영어는 세리프)
     func textFont(language: String, scale: Double = 1) -> Font {
-        let size = fontSize * scale
-        guard serif else { return .system(size: size) }
-        return language == "ko" ? .custom("AppleMyungjo", size: size) : .system(size: size, design: .serif)
+        textFont(language: language, size: fontSize * scale)
+    }
+
+    func textFont(language: String, size: Double) -> Font {
+        let latin = language != "ko"
+        let choice = latin && latinFontFamily != FontLibrary.sameAsBody ? latinFontFamily : fontFamily
+        return FontLibrary.font(choice, size: size, latin: latin)
     }
 
     func reloadTranslations() {

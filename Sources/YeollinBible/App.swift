@@ -7,6 +7,7 @@ struct YeollinBibleApp: App {
 
     init() {
         DebugLog.write("앱 시작 — 위치: \(Bundle.main.bundlePath)")
+        FontLibrary.registerUserFonts()
     }
 
     var body: some Scene {
@@ -36,10 +37,12 @@ struct YeollinBibleApp: App {
                 }
             }
             CommandMenu("보기") {
-                Button("글자 크게") { model.fontSize = min(model.fontSize + 1, 36) }
+                Button("글자 크게") { model.fontSize = min(model.fontSize + 1, 40) }
                     .keyboardShortcut("+")
                 Button("글자 작게") { model.fontSize = max(model.fontSize - 1, 12) }
                     .keyboardShortcut("-")
+                Button("글자 기본 크기") { model.fontSize = 18 }
+                    .keyboardShortcut("0")
                 Divider()
                 Toggle("대역 (두 역본 함께 보기)", isOn: $model.parallel)
                     .keyboardShortcut("d")

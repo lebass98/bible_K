@@ -60,8 +60,7 @@ struct CardMakerView: View {
     private var previewWidth: CGFloat { shape == .story ? 290 : 400 }
 
     private func cardFont(size: CGFloat) -> Font {
-        if model.primary?.language != "ko" { return .system(size: size, weight: .medium, design: model.serif ? .serif : .default) }
-        return .custom(model.serif ? "AppleMyungjo" : "Apple SD Gothic Neo", size: size)
+        model.textFont(language: model.primary?.language ?? "ko", size: size)
     }
 
     private var reference: String {

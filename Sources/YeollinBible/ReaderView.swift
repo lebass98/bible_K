@@ -5,6 +5,7 @@ import SwiftUI
 struct ReaderView: View {
     @Environment(AppModel.self) private var model
     @Local private var showPicker = false
+    @Local private var showTextStyle = false
 
     var body: some View {
         @Bindable var model = model
@@ -42,7 +43,17 @@ struct ReaderView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if !model.selection.isEmpty { SelectionBar().padding(10) }
+            VStack(spacing: 6) {
+                if let error = model.speech.lastError {
+                    Label(error, systemImage: "exclamationmark.triangle")
+                        .font(.caption)
+                        .padding(.horizontal, 12).padding(.vertical, 6)
+                        .background(.regularMaterial, in: Capsule())
+                        .onTapGesture { model.speech.lastError = nil }
+                }
+                if !model.selection.isEmpty { SelectionBar() }
+            }
+            .padding(10)
         }
         .toolbar { toolbar }
         .inspector(isPresented: $model.showInspector) {
@@ -186,12 +197,15 @@ struct ReaderView: View {
                 Toggle(isOn: $model.showStrongs) { Label("원어", systemImage: "character.book.closed") }
                     .help("원어 번호(Strong's)가 붙은 낱말 표시")
             }
+            Button { showTextStyle.toggle() } label: { Label("글꼴", systemImage: "textformat.size") }
+                .help("글꼴·글자 크기·줄 간격")
+                .popover(isPresented: $showTextStyle, arrowEdge: .bottom) { TextStylePanel() }
             Button {
                 if model.speech.isSpeaking { model.speech.stop() } else { model.speak(from: model.sortedSelection.first) }
             } label: {
                 Label(model.speech.isSpeaking ? "멈춤" : "듣기", systemImage: model.speech.isSpeaking ? "stop.fill" : "speaker.wave.2")
             }
-            .help(model.speech.isSpeaking ? "읽기 멈춤" : "소리 내어 읽기 (고른 절부터)")
+            .help(model.speech.isSpeaking ? "읽기 멈춤" : "소리 내어 읽기 (고른 절부터) · \(model.speech.usesGoogle ? "구글 음성" : "맥 음성")")
             Button { model.showInspector.toggle() } label: { Label("정보", systemImage: "sidebar.right") }
                 .help("관주·원어·노트 (⌥⌘I)")
         }
