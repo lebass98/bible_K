@@ -4,7 +4,7 @@
 갓피플성경 26.13의 기능을 분석해서([분석 문서](docs/갓피플성경-분석.md)) 공개된 macOS API와 자유롭게 쓸 수 있는 성경 데이터로 처음부터 새로 만들었습니다.
 갓피플성경의 코드·본문 데이터·그림·글꼴·문구·이름을 쓰지 않았고, 갓피플과는 관계가 없습니다.
 
-현재 버전: **1.0** · 요구 사항: macOS 14 이상, Apple Silicon
+현재 버전: **1.0** · [설치 파일 받기](https://github.com/lebass98/bible_K/releases/latest) · 요구 사항: macOS 14 이상, Apple Silicon
 
 ## 기능
 
@@ -43,7 +43,7 @@
 
 ## 설치
 
-1. `./make_pkg.sh`로 만든 `dist/YeollinBible-<버전>.pkg`를 더블클릭
+1. [릴리스](https://github.com/lebass98/bible_K/releases/latest)에서 `YeollinBible-<버전>.pkg`를 받아 더블클릭 (직접 빌드하면 `./make_pkg.sh` → `dist/`)
    - 인터넷에서 받은 파일은 "확인되지 않은 개발자" 경고가 뜰 수 있음 → 우클릭 → 열기
 2. 설치하면 `/Applications/YeollinBible.app`(이름: 열린성경)에 들어가고 자동 실행
 
