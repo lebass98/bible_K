@@ -30,7 +30,7 @@ struct PrayerView: View {
                     TextField("기도 제목을 적으세요", text: $draft)
                         .textFieldStyle(.roundedBorder)
                         .onSubmit(add)
-                    Button("적기", action: add)
+                    Button("기도 남기기", action: add)
                         .buttonStyle(.borderedProminent)
                         .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }
@@ -90,7 +90,7 @@ struct PrayerView: View {
             }
             Spacer()
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, 10)
         .contentShape(Rectangle())
         .onTapGesture(count: 2) { editing = item }
         .contextMenu {

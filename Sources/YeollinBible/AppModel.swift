@@ -80,6 +80,7 @@ final class AppModel {
     var cardVerses: [VerseRow]?
     var noteDraft: Note?
     var showGoTo = false
+    var showWelcome = false
     var importError: String?
 
     // MARK: 설정 (UserDefaults에 저장)

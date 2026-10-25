@@ -45,7 +45,7 @@ struct LibraryView: View {
                                 .help("이 역본 지우기")
                         }
                     }
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 10)
                 }
             } header: {
                 Text("역본")
@@ -69,7 +69,7 @@ struct LibraryView: View {
                         if let message { Text(message).font(.callout).foregroundStyle(.secondary) }
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 10)
             } header: {
                 Text("역본 가져오기")
             }
@@ -92,7 +92,7 @@ struct LibraryView: View {
                         if let hymnMessage { Text(hymnMessage).font(.callout).foregroundStyle(.secondary) }
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 10)
             } header: {
                 Text("찬송가")
             }
@@ -106,7 +106,7 @@ struct LibraryView: View {
                         Button("백업 가져오기…", action: importBackup)
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, 10)
             } header: {
                 Text("백업")
             }

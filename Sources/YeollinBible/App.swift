@@ -23,6 +23,9 @@ struct YeollinBibleApp: App {
         .defaultSize(width: 1280, height: 820)
         .commands {
             CommandGroup(replacing: .newItem) {}
+            CommandGroup(after: .appInfo) {
+                Button("시작 화면 보기") { model.showWelcome = true }
+            }
             CommandMenu("이동") {
                 Button("목차검색…") { model.showGoTo = true }
                     .keyboardShortcut("l")
@@ -78,6 +81,7 @@ struct ContentView: View {
     @Environment(AppModel.self) private var model
     @Local private var columns = NavigationSplitViewVisibility.automatic
     @Local private var width: CGFloat = 0
+    @AppStorage("brandWelcomeSeen.v2") private var welcomeSeen = false
 
     /// 이보다 좁으면 왼쪽 목록을 접음
     private static let narrow: CGFloat = 760
@@ -92,18 +96,28 @@ struct ContentView: View {
                 switch model.section {
                 case .reader: ReaderView()
                 case .search: SearchView()
-                case .records: RecordsView()
-                case .history: HistoryView()
-                case .plan: PlanView()
+                case .records: RecordsView().bibleWorkspace(.records)
+                case .history: HistoryView().bibleWorkspace(.history)
+                case .plan: PlanView().bibleWorkspace(.plan)
                 case .today: TodayView()
-                case .hymns: HymnView()
-                case .creeds: CreedView()
-                case .prayer: PrayerView()
-                case .thanks: ThanksView()
-                case .library: LibraryView()
+                case .hymns: HymnView().bibleWorkspace(.hymns)
+                case .creeds: CreedView().bibleWorkspace(.creeds)
+                case .prayer: PrayerView().bibleWorkspace(.prayer)
+                case .thanks: ThanksView().bibleWorkspace(.thanks)
+                case .library: LibraryView().bibleWorkspace(.library)
                 }
             }
             .navigationTitle(model.section == .reader ? "열린성경" : model.section.title)
+        }
+        .disabled(!welcomeSeen || model.showWelcome)
+        .overlay {
+            if !welcomeSeen || model.showWelcome {
+                BibleWelcomeView {
+                    welcomeSeen = true
+                    model.showWelcome = false
+                }
+                .transition(.opacity)
+            }
         }
         .tint(BibleStyle.accent)
         .accentColor(BibleStyle.accent)

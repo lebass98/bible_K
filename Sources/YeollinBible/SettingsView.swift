@@ -11,6 +11,10 @@ struct SettingsView: View {
             ReminderSettings().tabItem { Label("알림", systemImage: "bell") }
         }
         .frame(width: 560, height: 640)
+        .scrollContentBackground(.hidden)
+        .background(BibleStyle.canvas)
+        .tint(BibleStyle.accent)
+        .accentColor(BibleStyle.accent)
     }
 }
 
@@ -20,6 +24,15 @@ private struct TextSettings: View {
     var body: some View {
         @Bindable var model = model
         Form {
+            SwiftUI.Section {
+                BibleBrandLogo(width: 185)
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, 8)
+                Button("시작 화면 다시 보기") {
+                    model.showWelcome = true
+                    NSApp.keyWindow?.close()
+                }
+            }
             SwiftUI.Section("모양") {
                 AppearancePicker()
                 Text("자동은 맥의 시스템 설정(라이트·다크)을 따라가요. ⇧⌘D로 바로 바꿀 수 있어요.")

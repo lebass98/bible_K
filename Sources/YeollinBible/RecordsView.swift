@@ -8,7 +8,7 @@ struct RecordsView: View {
     @Local private var colorFilter: HighlightColor?
 
     enum Tab: String, CaseIterable, Identifiable {
-        case bookmarks = "책갈피", highlights = "형광펜", notes = "노트"
+        case bookmarks = "책갈피", highlights = "형광펜", notes = "묵상 노트"
         var id: String { rawValue }
     }
 
@@ -107,7 +107,7 @@ struct RecordsView: View {
                 }
                 Text(text).lineLimit(3).multilineTextAlignment(.leading)
             }
-            .padding(.vertical, 3)
+            .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }

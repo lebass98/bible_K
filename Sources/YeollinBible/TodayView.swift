@@ -159,7 +159,7 @@ struct ThanksView: View {
                         .textFieldStyle(.roundedBorder)
                         .focused($focused)
                         .onSubmit(add)
-                    Button("적기", action: add)
+                    Button("감사 남기기", action: add)
                         .buttonStyle(.borderedProminent)
                         .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
                 }

@@ -99,12 +99,22 @@ extension AppModel {
 struct PlanView: View {
     @Environment(AppModel.self) private var model
     @Local private var confirmStop = false
+    @Local private var starting: ReadingPlan?
 
     var body: some View {
-        if let progress = model.user.data.plan, let plan = ReadingPlan.find(progress.planID) {
-            active(plan, progress)
-        } else {
-            chooser
+        Group {
+            if let progress = model.user.data.plan, let plan = ReadingPlan.find(progress.planID) {
+                active(plan, progress)
+            } else {
+                chooser
+            }
+        }
+        .sheet(item: $starting) { plan in
+            PlanStartSheet(plan: plan) { start in
+                model.user.data.plan = PlanProgress(planID: plan.id, start: Calendar.current.startOfDay(for: start))
+                Reminders.reschedule(model: model)
+                starting = nil
+            }
         }
     }
 
@@ -121,15 +131,13 @@ struct PlanView: View {
                             Text(plan.title).font(.headline)
                             Text(plan.detail).font(.callout).foregroundStyle(.secondary)
                             Spacer(minLength: 4)
-                            Button("오늘부터 시작") {
-                                model.user.data.plan = PlanProgress(planID: plan.id, start: Calendar.current.startOfDay(for: Date()))
-                                Reminders.reschedule(model: model)
-                            }
+                            Button("이 계획으로 시작") { starting = plan }
                             .buttonStyle(.borderedProminent)
                         }
-                        .padding(16)
-                        .frame(maxWidth: .infinity, minHeight: 170, alignment: .topLeading)
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.08)))
+                        .padding(22)
+                        .frame(maxWidth: .infinity, minHeight: 190, alignment: .topLeading)
+                        .background(BibleStyle.canvas, in: RoundedRectangle(cornerRadius: 12))
+                        .overlay { RoundedRectangle(cornerRadius: 12).strokeBorder(BibleStyle.rule, lineWidth: 1) }
                     }
                 }
             }
@@ -255,5 +263,33 @@ struct PlanView: View {
         } else {
             model.user.data.plan!.done.insert(day)
         }
+    }
+}
+
+
+/// 시작 날짜를 확인한 뒤에만 실제 계획을 만든다.
+private struct PlanStartSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Local private var start = Date()
+    let plan: ReadingPlan
+    let onStart: (Date) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text("통독 계획 시작").font(.title2.weight(.semibold))
+            VStack(alignment: .leading, spacing: 7) {
+                Text(plan.title).font(.headline).foregroundStyle(BibleStyle.accent)
+                Text(plan.detail).font(.callout).foregroundStyle(.secondary)
+            }
+            DatePicker("시작일", selection: $start, displayedComponents: .date)
+            HStack {
+                Spacer()
+                Button("취소") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("계획 시작하기") { onStart(start) }
+                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(28).frame(width: 430)
+        .background(BibleStyle.paper).tint(BibleStyle.accent)
     }
 }

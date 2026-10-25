@@ -34,6 +34,9 @@ struct CardMakerView: View {
                                 .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.accentColor, lineWidth: theme.id == item.id ? 3 : 0))
                         }
                         .buttonStyle(.plain)
+                        .help(item.title)
+                        .accessibilityLabel("\(item.title) 배경")
+                        .accessibilityValue(theme.id == item.id ? "선택됨" : "")
                     }
                 }
                 Picker("모양", selection: $shape) {
@@ -54,7 +57,9 @@ struct CardMakerView: View {
             }
             .frame(width: 230)
         }
-        .padding(20)
+        .padding(28)
+        .background(BibleStyle.canvas)
+        .tint(BibleStyle.accent)
     }
 
     private var previewWidth: CGFloat { shape == .story ? 290 : 400 }
@@ -130,9 +135,12 @@ struct CardTheme: Identifiable {
     let id: Int
     let colors: [Color]
     let text: Color
+    var title: String {
+        ["세이지", "미드나이트", "노을", "민트", "하늘", "종이", "차콜", "라벤더", "햇살", "포레스트"][id]
+    }
 
     static let all: [CardTheme] = [
-        CardTheme(id: 0, colors: [Color(red: 0.98, green: 0.95, blue: 0.88), Color(red: 0.93, green: 0.86, blue: 0.74)], text: Color(red: 0.25, green: 0.2, blue: 0.15)),
+        CardTheme(id: 0, colors: [Color(red: 0.95, green: 0.95, blue: 0.91), Color(red: 0.88, green: 0.91, blue: 0.85)], text: Color(red: 0.21, green: 0.33, blue: 0.25)),
         CardTheme(id: 1, colors: [Color(red: 0.12, green: 0.18, blue: 0.35), Color(red: 0.3, green: 0.22, blue: 0.5)], text: .white),
         CardTheme(id: 2, colors: [Color(red: 0.98, green: 0.78, blue: 0.62), Color(red: 0.93, green: 0.45, blue: 0.5)], text: .white),
         CardTheme(id: 3, colors: [Color(red: 0.75, green: 0.9, blue: 0.82), Color(red: 0.36, green: 0.66, blue: 0.6)], text: Color(red: 0.08, green: 0.2, blue: 0.18)),

@@ -18,6 +18,7 @@ struct InspectorView: View {
                 .padding(16)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
+            .background(BibleStyle.paper)
         } else {
             ContentUnavailableView("절을 골라 주세요", systemImage: "hand.tap",
                                    description: Text("본문에서 절을 클릭하면 관주, 원어 뜻, 노트가 여기에 보여요."))

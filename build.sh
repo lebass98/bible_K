@@ -14,6 +14,9 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/YeollinBible "$APP/Contents/MacOS/YeollinBible"
 cp Info.plist "$APP/Contents/Info.plist"
+# 브랜드 이미지를 앱 안에 포함 (시안 폴더에 의존하지 않음)
+mkdir -p "$APP/Contents/Resources/Brand"
+cp -X Resources/Brand/*.png "$APP/Contents/Resources/Brand/"
 # 아이콘이 있을 때만 넣음 (scripts/make_icon.swift로 만듦)
 [ -f Resources/AppIcon.icns ] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 # 성경 DB (없으면 scripts/make_database.sh로 만듦)
@@ -26,5 +29,8 @@ codesign --force --sign - "$APP"
 
 echo "✅ 완료: $APP"
 
-echo "▶ 앱 실행"
-open "$APP"
+# 자동 실행 없이 패키징·서명만 확인할 때 사용
+if [ "${1:-}" != "--no-open" ]; then
+    echo "▶ 앱 실행"
+    open "$APP"
+fi
