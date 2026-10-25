@@ -14,8 +14,11 @@ struct YeollinBibleApp: App {
         WindowGroup("열린성경") {
             ContentView()
                 .environment(model)
-                .frame(minWidth: 820, minHeight: 560)
-                .task { Reminders.reschedule(model: model) }
+                .frame(minWidth: 460, minHeight: 420)
+                .task {
+                    model.appearance.apply()
+                    Reminders.reschedule(model: model)
+                }
         }
         .defaultSize(width: 1280, height: 820)
         .commands {
@@ -36,7 +39,8 @@ struct YeollinBibleApp: App {
                         .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
                 }
             }
-            CommandMenu("보기") {
+            // 시스템의 보기 메뉴 안에 넣음 (따로 만들면 보기 메뉴가 두 개가 됨)
+            CommandGroup(before: .toolbar) {
                 Button("글자 크게") { model.fontSize = min(model.fontSize + 1, 40) }
                     .keyboardShortcut("+")
                 Button("글자 작게") { model.fontSize = max(model.fontSize - 1, 12) }
@@ -49,6 +53,16 @@ struct YeollinBibleApp: App {
                 Toggle("원어 번호 보기", isOn: $model.showStrongs)
                 Toggle("오른쪽 정보 창", isOn: $model.showInspector)
                     .keyboardShortcut("i", modifiers: [.command, .option])
+                Divider()
+                Picker("모양", selection: $model.appearance) {
+                    ForEach(AppAppearance.allCases) { Text($0.title).tag($0) }
+                }
+                Button("라이트 · 다크 바꾸기") {
+                    let dark = model.appearance == .dark
+                        || (model.appearance == .system && NSApp.effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua)
+                    model.appearance = dark ? .light : .dark
+                }
+                .keyboardShortcut("d", modifiers: [.command, .shift])
             }
         }
 
@@ -61,10 +75,15 @@ struct YeollinBibleApp: App {
 
 struct ContentView: View {
     @Environment(AppModel.self) private var model
+    @Local private var columns = NavigationSplitViewVisibility.automatic
+    @Local private var width: CGFloat = 0
+
+    /// 이보다 좁으면 왼쪽 목록을 접음
+    private static let narrow: CGFloat = 760
 
     var body: some View {
         @Bindable var model = model
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columns) {
             List(AppSection.allCases, selection: $model.section) { section in
                 Label(section.title, systemImage: section.icon)
                     .tag(section)
@@ -85,6 +104,13 @@ struct ContentView: View {
             }
             .navigationTitle(model.section == .reader ? "열린성경" : model.section.title)
         }
+        .readWidth($width)
+        .onChange(of: width) { old, new in
+            // 좁아지는 순간에만 접고, 넓어지는 순간에만 펼침 (사용자가 직접 연 목록은 그대로 둠)
+            if old >= Self.narrow, new < Self.narrow { columns = .detailOnly }
+            if old < Self.narrow, new >= Self.narrow, old > 0 { columns = .all }
+        }
+        .onAppear { if width > 0, width < Self.narrow { columns = .detailOnly } }
         .sheet(isPresented: $model.showGoTo) { GoToSheet() }
         .sheet(item: Binding(get: { model.cardVerses.map(CardRequest.init) }, set: { model.cardVerses = $0?.verses })) { request in
             CardMakerView(verses: request.verses)

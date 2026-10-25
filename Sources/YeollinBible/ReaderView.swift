@@ -6,6 +6,12 @@ struct ReaderView: View {
     @Environment(AppModel.self) private var model
     @Local private var showPicker = false
     @Local private var showTextStyle = false
+    @Local private var width: CGFloat = 900
+
+    /// 창이 이보다 좁으면 대역을 위아래로 쌓음
+    private var stacked: Bool { width < 720 }
+    /// 좌우 여백 (좁은 창일수록 작게)
+    private var gutter: CGFloat { width < 560 ? 16 : (width < 900 ? 24 : 36) }
 
     var body: some View {
         @Bindable var model = model
@@ -23,13 +29,14 @@ struct ReaderView: View {
                                                description: Text("\(model.primary?.name ?? "이 역본")에는 \(model.location.label)이 들어 있지 않아요. 다른 역본을 골라 보세요."))
                     }
                     ForEach(rows, id: \.ref) { row in
-                        VerseRowView(ref: row.ref, primary: row.primary, secondary: secondaryID == nil ? nil : .some(row.secondary))
+                        VerseRowView(ref: row.ref, primary: row.primary, secondary: secondaryID == nil ? nil : .some(row.secondary),
+                                     stacked: stacked)
                             .id(row.ref)
                     }
                     footer
                 }
-                .padding(.horizontal, 36)
-                .padding(.vertical, 24)
+                .padding(.horizontal, gutter)
+                .padding(.vertical, width < 560 ? 14 : 24)
                 .frame(maxWidth: model.parallel ? 1200 : 760)
                 .frame(maxWidth: .infinity)
             }
@@ -42,6 +49,7 @@ struct ReaderView: View {
                 if let current { withAnimation { proxy.scrollTo(current, anchor: .center) } }
             }
         }
+        .readWidth($width)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 6) {
                 if let error = model.speech.lastError {
@@ -51,7 +59,7 @@ struct ReaderView: View {
                         .background(.regularMaterial, in: Capsule())
                         .onTapGesture { model.speech.lastError = nil }
                 }
-                if !model.selection.isEmpty { SelectionBar() }
+                if !model.selection.isEmpty { SelectionBar(compact: width < 640) }
             }
             .padding(10)
         }
@@ -96,7 +104,7 @@ struct ReaderView: View {
                 .foregroundStyle(.secondary)
             Text(model.location.label)
                 .font(model.textFont(language: "ko", scale: 1.6).weight(.bold))
-            if let secondary = model.secondary, let primary = model.primary {
+            if !stacked, let secondary = model.secondary, let primary = model.primary {
                 HStack {
                     Text(primary.name).frame(maxWidth: .infinity, alignment: .leading)
                     Text(secondary.name).frame(maxWidth: .infinity, alignment: .leading)
@@ -225,6 +233,8 @@ struct VerseRowView: View {
     let primary: VerseRow?
     /// nil이면 대역 아님, .some(nil)이면 대역인데 이 절이 없음
     let secondary: VerseRow??
+    /// 좁은 창: 대역을 아래에 쌓아서 보여 줌
+    var stacked = false
 
     var body: some View {
         let selected = model.selection.contains(ref)
@@ -238,12 +248,33 @@ struct VerseRowView: View {
                     .foregroundStyle(.secondary)
                     .padding(.top, 10)
             }
-            HStack(alignment: .firstTextBaseline, spacing: 20) {
-                column(primary, translation: model.primary)
-                if let secondary {
-                    column(secondary, translation: model.secondary)
+            if stacked, let secondary {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 12) {
+                        column(primary, translation: model.primary)
+                        markers
+                    }
+                    if let second = secondary {
+                        HStack(alignment: .firstTextBaseline, spacing: 6) {
+                            Text(model.secondary?.short ?? "")
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                            column(second, translation: model.secondary, scale: 0.9, dimmed: true)
+                        }
+                        .padding(.leading, 10)
+                        .overlay(alignment: .leading) {
+                            Rectangle().fill(Color.secondary.opacity(0.25)).frame(width: 2)
+                        }
+                    }
                 }
-                markers
+            } else {
+                HStack(alignment: .firstTextBaseline, spacing: 20) {
+                    column(primary, translation: model.primary)
+                    if let secondary {
+                        column(secondary, translation: model.secondary)
+                    }
+                    markers
+                }
             }
         }
         .padding(.vertical, 3)
@@ -282,7 +313,7 @@ struct VerseRowView: View {
     }
 
     @ViewBuilder
-    private func column(_ verse: VerseRow?, translation: BibleTranslation?) -> some View {
+    private func column(_ verse: VerseRow?, translation: BibleTranslation?, scale: Double = 1, dimmed: Bool = false) -> some View {
         let language = translation?.language ?? "ko"
         Group {
             if let verse {
@@ -291,7 +322,8 @@ struct VerseRowView: View {
                 Text("—").foregroundStyle(.tertiary)
             }
         }
-        .font(model.textFont(language: language))
+        .font(model.textFont(language: language, scale: scale))
+        .foregroundStyle(dimmed ? .secondary : .primary)
         .lineSpacing(model.lineSpacing)
         .frame(maxWidth: .infinity, alignment: .leading)
         .fixedSize(horizontal: false, vertical: true)
@@ -364,29 +396,49 @@ struct VerseMenu: View {
 /// 절을 고르면 아래에 뜨는 막대
 struct SelectionBar: View {
     @Environment(AppModel.self) private var model
+    /// 좁은 창: 구절 이름을 빼고 형광펜 색을 메뉴 하나로 묶음
+    var compact = false
 
     var body: some View {
         let refs = model.sortedSelection
-        HStack(spacing: 14) {
-            Text(label(refs))
-                .font(.callout.weight(.semibold))
-                .lineLimit(1)
-            Divider().frame(height: 18)
-            HStack(spacing: 6) {
-                ForEach(HighlightColor.allCases) { color in
-                    Button { model.user.setHighlight(color, for: refs) } label: {
-                        Circle().fill(Color(nsColor: color.nsColor)).frame(width: 16, height: 16)
+        HStack(spacing: compact ? 12 : 14) {
+            if !compact {
+                Text(label(refs))
+                    .font(.callout.weight(.semibold))
+                    .lineLimit(1)
+                Divider().frame(height: 18)
+            }
+            if compact {
+                Menu {
+                    ForEach(HighlightColor.allCases) { color in
+                        Button("형광펜 \(color.name)") { model.user.setHighlight(color, for: refs) }
+                    }
+                    Divider()
+                    Button("형광펜 지우기") { model.user.setHighlight(nil, for: refs) }
+                } label: {
+                    Image(systemName: "highlighter")
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .fixedSize()
+                .help("형광펜")
+            } else {
+                HStack(spacing: 6) {
+                    ForEach(HighlightColor.allCases) { color in
+                        Button { model.user.setHighlight(color, for: refs) } label: {
+                            Circle().fill(Color(nsColor: color.nsColor)).frame(width: 16, height: 16)
+                        }
+                        .buttonStyle(.plain)
+                        .help("형광펜 \(color.name)")
+                    }
+                    Button { model.user.setHighlight(nil, for: refs) } label: {
+                        Image(systemName: "eraser")
                     }
                     .buttonStyle(.plain)
-                    .help("형광펜 \(color.name)")
+                    .help("형광펜 지우기")
                 }
-                Button { model.user.setHighlight(nil, for: refs) } label: {
-                    Image(systemName: "eraser")
-                }
-                .buttonStyle(.plain)
-                .help("형광펜 지우기")
+                Divider().frame(height: 18)
             }
-            Divider().frame(height: 18)
             Group {
                 Button { model.user.toggleBookmark(refs) } label: {
                     Image(systemName: refs.allSatisfy(model.user.isBookmarked) ? "bookmark.fill" : "bookmark")
@@ -398,14 +450,14 @@ struct SelectionBar: View {
                 Button { model.showInspector = true } label: { Image(systemName: "link") }.help("관주·원어 보기")
             }
             .buttonStyle(.plain)
-            Divider().frame(height: 18)
+            if !compact { Divider().frame(height: 18) }
             Button { model.selection = [] } label: { Image(systemName: "xmark.circle.fill") }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
                 .help("고르기 취소 (esc)")
                 .keyboardShortcut(.cancelAction)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, compact ? 12 : 16)
         .padding(.vertical, 10)
         .background(.regularMaterial, in: Capsule())
         .shadow(color: .black.opacity(0.15), radius: 8, y: 2)

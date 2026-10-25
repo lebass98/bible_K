@@ -195,18 +195,30 @@ struct PlanView: View {
     }
 
     private func todayCard(day: Int, chapters: [ChapterRef], done: Bool) -> some View {
-        HStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("오늘 · \(day + 1)일째").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(ReadingPlan.label(chapters)).font(.title3.weight(.semibold))
-            }
-            Spacer()
+        let title = VStack(alignment: .leading, spacing: 4) {
+            Text("오늘 · \(day + 1)일째").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+            Text(ReadingPlan.label(chapters)).font(.title3.weight(.semibold))
+        }
+        let buttons = HStack {
             if let first = chapters.first {
                 Button("읽으러 가기") { model.open(first) }.buttonStyle(.bordered)
             }
             Button(done ? "다 읽음 ✓" : "다 읽음") { toggle(day) }
                 .buttonStyle(.borderedProminent)
                 .tint(done ? .green : .accentColor)
+        }
+        .fixedSize()
+        // 창이 좁으면 단추를 아래 줄로
+        return ViewThatFits(in: .horizontal) {
+            HStack(spacing: 16) {
+                title.fixedSize()
+                Spacer()
+                buttons
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                title
+                buttons
+            }
         }
         .padding(16)
         .background(RoundedRectangle(cornerRadius: 12).fill(Color.accentColor.opacity(0.08)))

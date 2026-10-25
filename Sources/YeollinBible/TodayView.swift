@@ -77,22 +77,33 @@ struct TodayView: View {
 
             if let reference {
                 let refs = verses.map(\.ref)
-                HStack(spacing: 12) {
-                    Button { model.open(reference.start) } label: { Label("본문 보기", systemImage: "book") }
-                    Button { model.copy(refs) } label: { Label("복사", systemImage: "doc.on.doc") }
-                    Button { model.makeCard(refs) } label: { Label("말씀 카드", systemImage: "photo.on.rectangle") }
-                    Button { model.user.toggleBookmark(refs) } label: {
-                        Label("책갈피", systemImage: refs.allSatisfy(model.user.isBookmarked) ? "bookmark.fill" : "bookmark")
-                    }
+                // 창이 좁으면 글자를 빼고 그림 단추만
+                ViewThatFits(in: .horizontal) {
+                    actions(reference, refs).labelStyle(.titleAndIcon)
+                    actions(reference, refs).labelStyle(.iconOnly)
                 }
-                .buttonStyle(.bordered)
             }
             ReminderToggle(kind: .dailyVerse)
                 .font(.callout)
                 .padding(.bottom, 8)
         }
-        .padding(32)
+        .padding(.horizontal, 20)
+        .padding(.vertical, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func actions(_ reference: ReferenceParser.Reference, _ refs: [VerseRef]) -> some View {
+        HStack(spacing: 12) {
+            Button { model.open(reference.start) } label: { Label("본문 보기", systemImage: "book") }.help("본문 보기")
+            Button { model.copy(refs) } label: { Label("복사", systemImage: "doc.on.doc") }.help("복사")
+            Button { model.makeCard(refs) } label: { Label("말씀 카드", systemImage: "photo.on.rectangle") }.help("말씀 카드")
+            Button { model.user.toggleBookmark(refs) } label: {
+                Label("책갈피", systemImage: refs.allSatisfy(model.user.isBookmarked) ? "bookmark.fill" : "bookmark")
+            }
+            .help("책갈피")
+        }
+        .buttonStyle(.bordered)
+        .fixedSize()
     }
 
     private func shift(_ days: Int) {

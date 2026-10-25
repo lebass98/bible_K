@@ -10,6 +10,7 @@ struct SearchView: View {
     @Local private var results: [VerseRow] = []
     @Local private var searched = ""
     @FocusState private var focused: Bool
+    @Local private var width: CGFloat = 900
 
     enum Scope: String, CaseIterable, Identifiable {
         case all = "성경 전체", old = "구약", new = "신약", book = "지금 읽는 책"
@@ -18,22 +19,18 @@ struct SearchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                TextField("찾을 말 또는 구절 주소 (예: 사랑, 목자, 요3:16)", text: $query)
-                    .textFieldStyle(.roundedBorder)
-                    .focused($focused)
-                    .onSubmit(run)
-                Picker("범위", selection: $scope) {
-                    ForEach(Scope.allCases) { Text($0.rawValue).tag($0) }
+            Group {
+                if width < 660 {
+                    // 좁은 창: 찾는 칸을 위에, 범위·역본을 아래 줄에
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack(spacing: 8) { field; searchButton }
+                        HStack(spacing: 8) { scopePicker; translationPicker }
+                    }
+                } else {
+                    HStack(spacing: 10) { field; scopePicker; translationPicker; searchButton }
                 }
-                .frame(width: 170)
-                Picker("역본", selection: $translationID) {
-                    ForEach(model.translations) { Text($0.short).tag($0.id) }
-                }
-                .frame(width: 140)
-                Button("찾기", action: run).keyboardShortcut(.defaultAction)
             }
-            .padding(14)
+            .padding(width < 560 ? 10 : 14)
             Divider()
 
             if let reference = ReferenceParser.parse(query.trimmingCharacters(in: .whitespaces)) {
@@ -53,7 +50,7 @@ struct SearchView: View {
                     Text("‘\(searched)’ \(results.count)절\(results.count >= 2000 ? " 이상" : "")")
                         .font(.callout).foregroundStyle(.secondary)
                     Spacer()
-                    if !results.isEmpty { bookCounts }
+                    if !results.isEmpty, width >= 560 { bookCounts }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 8)
             }
@@ -82,10 +79,36 @@ struct SearchView: View {
                 }
             }
         }
+        .readWidth($width)
         .onAppear {
             if translationID.isEmpty { translationID = model.primaryID }
             focused = true
         }
+    }
+
+    private var field: some View {
+        TextField("찾을 말 또는 구절 주소 (예: 사랑, 목자, 요3:16)", text: $query)
+            .textFieldStyle(.roundedBorder)
+            .focused($focused)
+            .onSubmit(run)
+    }
+
+    private var scopePicker: some View {
+        Picker("범위", selection: $scope) {
+            ForEach(Scope.allCases) { Text($0.rawValue).tag($0) }
+        }
+        .frame(maxWidth: 170)
+    }
+
+    private var translationPicker: some View {
+        Picker("역본", selection: $translationID) {
+            ForEach(model.translations) { Text($0.short).tag($0.id) }
+        }
+        .frame(maxWidth: 140)
+    }
+
+    private var searchButton: some View {
+        Button("찾기", action: run).keyboardShortcut(.defaultAction)
     }
 
     private var bookCounts: some View {

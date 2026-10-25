@@ -83,6 +83,12 @@ final class AppModel {
     var lineSpacing: Double { didSet { defaults.set(lineSpacing, forKey: "lineSpacing") } }
     var showHeadings: Bool { didSet { defaults.set(showHeadings, forKey: "showHeadings") } }
     var showVerseNumbers: Bool { didSet { defaults.set(showVerseNumbers, forKey: "showVerseNumbers") } }
+    var appearance: AppAppearance {
+        didSet {
+            defaults.set(appearance.rawValue, forKey: "appearance")
+            appearance.apply()
+        }
+    }
 
     @ObservationIgnored private let defaults = UserDefaults.standard
 
@@ -107,6 +113,7 @@ final class AppModel {
         lineSpacing = defaults.object(forKey: "lineSpacing") as? Double ?? 6
         showHeadings = defaults.object(forKey: "showHeadings") as? Bool ?? true
         showVerseNumbers = defaults.object(forKey: "showVerseNumbers") as? Bool ?? true
+        appearance = AppAppearance(rawValue: defaults.string(forKey: "appearance") ?? "") ?? .system
         location = user.data.lastLocation
 
         reloadTranslations()

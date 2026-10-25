@@ -20,6 +20,11 @@ private struct TextSettings: View {
     var body: some View {
         @Bindable var model = model
         Form {
+            SwiftUI.Section("모양") {
+                AppearancePicker()
+                Text("자동은 맥의 시스템 설정(라이트·다크)을 따라가요. ⇧⌘D로 바로 바꿀 수 있어요.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             SwiftUI.Section("글자") {
                 FontSizeControl()
                 LabeledContent("줄 간격") {

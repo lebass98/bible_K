@@ -291,6 +291,7 @@ struct TextStylePanel: View {
     var body: some View {
         @Bindable var model = model
         VStack(alignment: .leading, spacing: 12) {
+            AppearancePicker()
             FontSizeControl()
             HStack {
                 Text("줄 간격").frame(width: 64, alignment: .leading)
