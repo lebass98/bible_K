@@ -168,7 +168,8 @@ public struct ChapterRef: Hashable, Codable, Sendable {
         self.chapter = chapter
     }
 
-    public var label: String { "\(Bible.book(book)?.name ?? "?") \(chapter)장" }
+    /// "창세기 1장", 시편은 "시편 23편"
+    public var label: String { "\(Bible.book(book)?.name ?? "?") \(chapter)\(book == 19 ? "편" : "장")" }
 
     /// 성경 전체에서 다음 장 (요한계시록 22장 다음은 없음)
     public var next: ChapterRef? {

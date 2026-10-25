@@ -198,6 +198,9 @@ struct PlanView: View {
         let title = VStack(alignment: .leading, spacing: 4) {
             Text("오늘 · \(day + 1)일째").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             Text(ReadingPlan.label(chapters)).font(.title3.weight(.semibold))
+            if let cheer = Extras.daily(Extras.phrases.plan) {
+                Text(cheer).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
         }
         let buttons = HStack {
             if let first = chapters.first {

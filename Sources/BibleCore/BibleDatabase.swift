@@ -30,6 +30,16 @@ public struct VerseRow: Identifiable, Hashable, Sendable {
     }
 }
 
+/// 역본에 딸린 관주(link)·각주(note)
+public struct VerseNote: Hashable, Sendable {
+    public let kind: String       // "link" 관주, "note" 각주, 그 밖
+    public let mark: String       // 본문에 붙은 표시 (ㄱ, 1, a …)
+    public let text: String       // 설명
+    public let refs: [String]     // 연결 구절 주소 ("요1:29")
+
+    public var isFootnote: Bool { kind != "link" }
+}
+
 public struct StrongEntry: Hashable, Sendable {
     public let id: String
     public let lemma: String
@@ -67,6 +77,8 @@ public final class BibleDatabase {
         CREATE TABLE IF NOT EXISTS xrefs(src INTEGER, dst INTEGER, dst_end INTEGER, votes INTEGER);
         CREATE INDEX IF NOT EXISTS xrefs_src ON xrefs(src);
         CREATE TABLE IF NOT EXISTS meta(key TEXT PRIMARY KEY, value TEXT);
+        CREATE TABLE IF NOT EXISTS notes(tr TEXT, id INTEGER, kind TEXT, mark TEXT, text TEXT, refs TEXT);
+        CREATE INDEX IF NOT EXISTS notes_verse ON notes(tr, id);
         """
 
     public init(path: String, readOnly: Bool) throws {
@@ -93,6 +105,7 @@ public final class BibleDatabase {
 
     public func deleteTranslation(_ id: String) {
         db.run("DELETE FROM verses WHERE tr = ?", [id])
+        db.run("DELETE FROM notes WHERE tr = ?", [id])
         db.run("DELETE FROM translations WHERE id = ?", [id])
     }
 
@@ -155,6 +168,21 @@ public final class BibleDatabase {
             result[ChapterRef(book: id / 1000, chapter: id % 1000)] = count
         }
         return result
+    }
+
+    /// 이 절의 관주·각주 (표가 없는 DB면 빈 목록)
+    public func notes(_ tr: String, _ ref: VerseRef) -> [VerseNote] {
+        db.query("SELECT kind, mark, text, refs FROM notes WHERE tr = ? AND id = ? ORDER BY rowid", [tr, ref.id]) {
+            VerseNote(kind: $0.text(0), mark: $0.text(1), text: $0.text(2),
+                      refs: $0.text(3).split(separator: ";").map { $0.trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+        }
+    }
+
+    /// 이 장에서 각주가 있는 절들
+    public func footnotedVerses(_ tr: String, _ chapter: ChapterRef) -> Set<Int> {
+        let start = chapter.book * 1_000_000 + chapter.chapter * 1000
+        return Set(db.query("SELECT DISTINCT id FROM notes WHERE tr = ? AND id > ? AND id < ? AND kind != 'link'",
+                            [tr, start, start + 1000]) { $0.int(0) })
     }
 
     public func meta(_ key: String) -> String? {

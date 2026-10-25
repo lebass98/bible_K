@@ -92,6 +92,7 @@ private struct SpeechSettings: View {
     var body: some View {
         @Bindable var speech = model.speech
         Form {
+            AudioBibleSettings()
             SwiftUI.Section {
                 Picker("목소리", selection: $speech.engine) {
                     ForEach(SpeechEngine.allCases) { Text($0.title).tag($0) }
@@ -226,8 +227,53 @@ private struct ReminderSettings: View {
             SwiftUI.Section("매일 알림") {
                 ReminderToggle(kind: .plan)
                 ReminderToggle(kind: .dailyVerse)
+                ReminderToggle(kind: .prayer)
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+/// 녹음 음원(오디오 성경) 폴더 설정
+private struct AudioBibleSettings: View {
+    @Environment(AppModel.self) private var model
+
+    var body: some View {
+        @Bindable var audio = model.audio
+        SwiftUI.Section {
+            Toggle("녹음 음원이 있으면 먼저 듣기", isOn: $audio.preferRecorded)
+            LabeledContent("음원 폴더") {
+                HStack {
+                    Text(audio.folder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"))
+                        .font(.caption).foregroundStyle(.secondary)
+                        .lineLimit(1).truncationMode(.middle)
+                    Button("바꾸기…", action: chooseFolder)
+                    Button("열기") { NSWorkspace.shared.open(audio.folder) }
+                    Button("다시 찾기") { model.audio.reload() }
+                }
+            }
+            let counts = audio.counts.filter { $0.files > 0 }
+            if counts.isEmpty {
+                Text("아직 찾은 음원이 없어요. 장마다 음원 파일(예: `rv43003.mp3` = 요한복음 3장)을 이 폴더에 넣고 ‘다시 찾기’를 누르세요. 하위 폴더에 있어도 찾아요.")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                ForEach(counts, id: \.prefix) { item in
+                    LabeledContent(item.name, value: "\(item.files)장")
+                }
+            }
+            Text("절 시각표(timings.json)가 있으면 듣는 절을 본문에 표시하고 따라가요.")
+                .font(.caption).foregroundStyle(.secondary)
+        } header: {
+            Text("오디오 성경 (녹음 음원)")
+        }
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.directoryURL = model.audio.folder
+        panel.message = "장마다 음원 파일이 들어 있는 폴더를 고르세요"
+        if panel.runModal() == .OK, let url = panel.url { model.audio.folder = url }
     }
 }

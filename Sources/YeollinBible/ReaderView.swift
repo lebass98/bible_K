@@ -4,7 +4,6 @@ import SwiftUI
 /// 성경 읽기 화면
 struct ReaderView: View {
     @Environment(AppModel.self) private var model
-    @Local private var showPicker = false
     @Local private var showTextStyle = false
     @Local private var width: CGFloat = 900
 
@@ -19,10 +18,11 @@ struct ReaderView: View {
         let secondaryID = model.secondary?.id
         let secondary = secondaryID.map { model.chapter($0, model.location) } ?? []
         let rows = mergedRows(primary, secondary)
+        let footnoted = model.database(for: model.primaryID)?.footnotedVerses(model.primaryID, model.location) ?? []
 
         ScrollViewReader { proxy in
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: model.lineSpacing + 4) {
+                LazyVStack(alignment: .leading, spacing: model.lineSpacing + 8) {
                     header
                     if rows.isEmpty {
                         ContentUnavailableView("이 장의 본문이 없어요", systemImage: "book.closed",
@@ -30,28 +30,37 @@ struct ReaderView: View {
                     }
                     ForEach(rows, id: \.ref) { row in
                         VerseRowView(ref: row.ref, primary: row.primary, secondary: secondaryID == nil ? nil : .some(row.secondary),
-                                     stacked: stacked)
+                                     stacked: stacked, footnoted: footnoted.contains(row.ref.id))
                             .id(row.ref)
                     }
                     footer
                 }
                 .padding(.horizontal, gutter)
-                .padding(.vertical, width < 560 ? 14 : 24)
-                .frame(maxWidth: model.parallel ? 1200 : 760)
+                .padding(.vertical, width < 560 ? 22 : 36)
+                .frame(maxWidth: model.parallel ? 1200 : 780)
+                .background(BibleStyle.paper, in: RoundedRectangle(cornerRadius: 16))
+                .overlay { RoundedRectangle(cornerRadius: 16).strokeBorder(BibleStyle.rule.opacity(0.7), lineWidth: 1) }
                 .frame(maxWidth: .infinity)
+                .padding(width < 560 ? 10 : 24)
             }
             .onAppear { scroll(proxy, to: model.scrollTarget, animated: false) }
             .onChange(of: model.scrollTarget) { _, target in scroll(proxy, to: target, animated: true) }
             .onChange(of: model.location) { _, _ in
                 if model.scrollTarget == nil { proxy.scrollTo(rows.first?.ref, anchor: .top) }
             }
+            .onChange(of: model.audio.currentVerse) { _, current in
+                // 듣고 있는 장을 보고 있을 때만 따라감
+                if let current, model.audio.chapter == model.location { withAnimation { proxy.scrollTo(current, anchor: .center) } }
+            }
             .onChange(of: model.speech.current) { _, current in
                 if let current { withAnimation { proxy.scrollTo(current, anchor: .center) } }
             }
         }
+        .background(BibleStyle.canvas)
         .readWidth($width)
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 6) {
+                if model.audio.isActive { AudioPlayerBar(compact: width < 640) }
                 if let error = model.speech.lastError {
                     Label(error, systemImage: "exclamationmark.triangle")
                         .font(.caption)
@@ -68,6 +77,14 @@ struct ReaderView: View {
             InspectorView()
                 .inspectorColumnWidth(min: 260, ideal: 320, max: 460)
         }
+    }
+
+    /// 듣기 단추 설명: 이 장에 녹음 음원이 있는지에 따라
+    private var listenHelp: String {
+        if model.audio.preferRecorded, let prefix = model.audio.preferredPrefix(translation: model.primaryID, chapter: model.location) {
+            return "듣기 (고른 절부터) · 녹음 음원 \(model.audio.sets[prefix]?.name ?? prefix)"
+        }
+        return "소리 내어 읽기 (고른 절부터) · \(model.speech.usesGoogle ? "구글 음성" : "맥 음성")"
     }
 
     private func scroll(_ proxy: ScrollViewProxy, to target: VerseRef?, animated: Bool) {
@@ -97,24 +114,33 @@ struct ReaderView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(Bible.book(model.location.book)?.english.uppercased() ?? "")
-                .font(.caption.weight(.semibold))
-                .tracking(1.5)
-                .foregroundStyle(.secondary)
-            Text(model.location.label)
-                .font(model.textFont(language: "ko", scale: 1.6).weight(.bold))
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(spacing: 10) {
+                Rectangle().fill(BibleStyle.accent.opacity(0.6)).frame(width: 20, height: 1)
+                Text(Bible.book(model.location.book)?.english.uppercased() ?? "")
+                    .font(.system(size: 10, weight: .semibold)).tracking(2)
+                    .foregroundStyle(BibleStyle.accent)
+            }
+            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                Text(model.location.label)
+                    .font(model.textFont(language: "ko", scale: 1.7).weight(.bold))
+                Text("\(model.chapter(model.primaryID, model.location).count)절")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             if !stacked, let secondary = model.secondary, let primary = model.primary {
-                HStack {
+                HStack(spacing: 20) {
                     Text(primary.name).frame(maxWidth: .infinity, alignment: .leading)
                     Text(secondary.name).frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.top, 8)
+                .font(.caption).foregroundStyle(.secondary)
+            } else {
+                Text(model.primary?.name ?? "")
+                    .font(.caption).foregroundStyle(.secondary)
             }
+            Rectangle().fill(BibleStyle.rule).frame(height: 1).padding(.top, 8)
         }
-        .padding(.bottom, 12)
+        .padding(.bottom, 16)
+        .accessibilityElement(children: .combine)
     }
 
     private var footer: some View {
@@ -161,19 +187,13 @@ struct ReaderView: View {
             Button { model.goPrevious() } label: { Image(systemName: "chevron.left") }
                 .help("이전 장 (⌘←)")
                 .disabled(model.location.previous == nil)
-            Button { showPicker.toggle() } label: {
+            Button { model.showGoTo = true } label: {
                 HStack(spacing: 4) {
                     Text(model.location.label).fontWeight(.semibold)
                     Image(systemName: "chevron.down").font(.caption2)
                 }
             }
-            .help("책·장 고르기")
-            .popover(isPresented: $showPicker, arrowEdge: .bottom) {
-                BookPicker { chapter in
-                    model.open(chapter)
-                    showPicker = false
-                }
-            }
+            .help("목차검색: 책·장·절 고르기 (⌘L)")
             Button { model.goNext() } label: { Image(systemName: "chevron.right") }
                 .help("다음 장 (⌘→)")
                 .disabled(model.location.next == nil)
@@ -209,11 +229,11 @@ struct ReaderView: View {
                 .help("글꼴·글자 크기·줄 간격")
                 .popover(isPresented: $showTextStyle, arrowEdge: .bottom) { TextStylePanel() }
             Button {
-                if model.speech.isSpeaking { model.speech.stop() } else { model.speak(from: model.sortedSelection.first) }
+                if model.isListening { model.stopListening() } else { model.listen(from: model.sortedSelection.first) }
             } label: {
-                Label(model.speech.isSpeaking ? "멈춤" : "듣기", systemImage: model.speech.isSpeaking ? "stop.fill" : "speaker.wave.2")
+                Label(model.isListening ? "멈춤" : "듣기", systemImage: model.isListening ? "stop.fill" : "speaker.wave.2")
             }
-            .help(model.speech.isSpeaking ? "읽기 멈춤" : "소리 내어 읽기 (고른 절부터) · \(model.speech.usesGoogle ? "구글 음성" : "맥 음성")")
+            .help(model.isListening ? "듣기 멈춤" : listenHelp)
             Button { model.showInspector.toggle() } label: { Label("정보", systemImage: "sidebar.right") }
                 .help("관주·원어·노트 (⌥⌘I)")
         }
@@ -235,10 +255,12 @@ struct VerseRowView: View {
     let secondary: VerseRow??
     /// 좁은 창: 대역을 아래에 쌓아서 보여 줌
     var stacked = false
+    /// 역본 각주가 있는 절 (정보 창에서 봄)
+    var footnoted = false
 
     var body: some View {
         let selected = model.selection.contains(ref)
-        let speaking = model.speech.current == ref
+        let speaking = model.speech.current == ref || model.audio.currentVerse == ref
         let highlight = model.user.data.highlights[ref.id]
 
         VStack(alignment: .leading, spacing: 6) {
@@ -277,14 +299,14 @@ struct VerseRowView: View {
                 }
             }
         }
-        .padding(.vertical, 3)
-        .padding(.horizontal, 8)
+        .padding(.vertical, 7)
+        .padding(.horizontal, 10)
         .background(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 9)
                 .fill(background(selected: selected, speaking: speaking, highlight: highlight))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 6)
+            RoundedRectangle(cornerRadius: 9)
                 .strokeBorder(Color.accentColor.opacity(selected ? 0.6 : 0), lineWidth: 1)
         )
         .contentShape(Rectangle())
@@ -361,6 +383,10 @@ struct VerseRowView: View {
             if !model.user.notes(for: ref).isEmpty {
                 Image(systemName: "note.text").foregroundStyle(.secondary)
             }
+            if footnoted {
+                Image(systemName: "asterisk").foregroundStyle(.orange)
+                    .help("각주가 있어요 — 절을 고르고 정보 창에서 보세요")
+            }
         }
         .font(.caption)
         .frame(width: 14)
@@ -389,7 +415,7 @@ struct VerseMenu: View {
             model.selection = Set(refs)
             model.showInspector = true
         }
-        Button("여기부터 소리 내어 읽기") { model.speak(from: refs.first) }
+        Button("여기부터 듣기") { model.listen(from: refs.first) }
     }
 }
 
@@ -446,7 +472,7 @@ struct SelectionBar: View {
                 Button { model.writeNote(refs) } label: { Image(systemName: "square.and.pencil") }.help("노트 쓰기")
                 Button { model.copy(refs) } label: { Image(systemName: "doc.on.doc") }.help("복사")
                 Button { model.makeCard(refs) } label: { Image(systemName: "photo.on.rectangle") }.help("말씀 카드 만들기")
-                Button { model.speak(from: refs.first) } label: { Image(systemName: "speaker.wave.2") }.help("여기부터 읽기")
+                Button { model.listen(from: refs.first) } label: { Image(systemName: "speaker.wave.2") }.help("여기부터 듣기")
                 Button { model.showInspector = true } label: { Image(systemName: "link") }.help("관주·원어 보기")
             }
             .buttonStyle(.plain)
@@ -467,66 +493,5 @@ struct SelectionBar: View {
         guard let first = refs.first, let last = refs.last else { return "" }
         if refs.count == 1 { return first.shortLabel }
         return "\(first.shortLabel)-\(last.verse) · \(refs.count)절"
-    }
-}
-
-/// 책·장 고르기
-struct BookPicker: View {
-    @Environment(AppModel.self) private var model
-    let onPick: (ChapterRef) -> Void
-    @Local private var newTestament = false
-    @Local private var book: BibleBook?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if let book {
-                HStack {
-                    Button { self.book = nil } label: { Label("책 목록", systemImage: "chevron.left") }
-                        .buttonStyle(.borderless)
-                    Spacer()
-                    Text(book.name).font(.headline)
-                    Spacer()
-                }
-                ScrollView {
-                    LazyVGrid(columns: Array(repeating: GridItem(.fixed(44), spacing: 6), count: 8), spacing: 6) {
-                        ForEach(1...book.chapters, id: \.self) { chapter in
-                            let current = model.location == ChapterRef(book: book.id, chapter: chapter)
-                            Button { onPick(ChapterRef(book: book.id, chapter: chapter)) } label: {
-                                Text("\(chapter)").frame(width: 40, height: 30)
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(current ? .accentColor : nil)
-                        }
-                    }
-                }
-                .frame(maxHeight: 360)
-            } else {
-                Picker("", selection: $newTestament) {
-                    Text("구약").tag(false)
-                    Text("신약").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                LazyVGrid(columns: Array(repeating: GridItem(.fixed(78), spacing: 6), count: 5), spacing: 6) {
-                    ForEach(newTestament ? Bible.newTestament : Bible.oldTestament) { item in
-                        Button {
-                            if item.chapters == 1 { onPick(ChapterRef(book: item.id, chapter: 1)) } else { book = item }
-                        } label: {
-                            Text(item.name)
-                                .font(.callout)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .frame(width: 74, height: 26)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(item.id == model.location.book ? .accentColor : nil)
-                        .help("\(item.name) (\(item.english)) · \(item.chapters)장")
-                    }
-                }
-            }
-        }
-        .padding(14)
-        .frame(width: 470)
-        .onAppear { newTestament = model.location.book >= 40 }
     }
 }

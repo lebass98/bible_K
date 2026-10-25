@@ -11,6 +11,7 @@ struct InspectorView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     Text(ref.label).font(.title3.bold())
                     notes(ref)
+                    translationNotes(ref)
                     strongs(ref)
                     crossRefs(ref)
                 }
@@ -46,6 +47,64 @@ struct InspectorView: View {
         } label: {
             Label("노트", systemImage: "note.text")
         }
+    }
+
+    // MARK: 역본 관주·각주
+
+    @ViewBuilder
+    private func translationNotes(_ ref: VerseRef) -> some View {
+        let items = model.verseNotes(ref)
+        if !items.isEmpty {
+            GroupBox {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                        HStack(alignment: .firstTextBaseline, spacing: 8) {
+                            Text(item.mark)
+                                .font(.caption.weight(.bold))
+                                .foregroundStyle(item.isFootnote ? Color.orange : Color.accentColor)
+                                .frame(minWidth: 18, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 4) {
+                                if item.isFootnote || item.refs.isEmpty {
+                                    Text(plainNote(item.text)).font(.callout).textSelection(.enabled)
+                                }
+                                if !item.refs.isEmpty {
+                                    FlowLayout(spacing: 6) {
+                                        ForEach(item.refs, id: \.self) { address in
+                                            refButton(address)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            } label: {
+                Label("\(model.primary?.short ?? "") 관주·각주", systemImage: "text.book.closed")
+            }
+        }
+    }
+
+    /// "요1:29" → 누르면 그 구절로, 마우스를 올리면 본문
+    @ViewBuilder
+    private func refButton(_ address: String) -> some View {
+        // "막8:31-9:1", "왕하18-20" 처럼 장을 넘는 범위는 시작 위치로
+        if let reference = ReferenceParser.parse(address)
+            ?? ReferenceParser.parse(String(address.split(separator: "-").first ?? "")) {
+            Button(address) {
+                if reference.hasVerse { model.open(reference.start) } else { model.open(reference.chapter) }
+            }
+            .buttonStyle(.link)
+            .font(.callout)
+            .help(reference.hasVerse ? model.verseText(reference.start) : reference.chapter.label)
+        } else {
+            Text(address).font(.callout).foregroundStyle(.secondary)
+        }
+    }
+
+    private func plainNote(_ text: String) -> String {
+        text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
+            .replacingOccurrences(of: "&nbsp;", with: " ")
     }
 
     // MARK: 원어

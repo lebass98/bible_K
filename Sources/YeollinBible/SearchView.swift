@@ -19,6 +19,16 @@ struct SearchView: View {
 
     var body: some View {
         VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 9) {
+                Label("SEARCH THE WORD", systemImage: "magnifyingglass")
+                    .font(.system(size: 10, weight: .semibold)).tracking(1.5).foregroundStyle(BibleStyle.accent)
+                Text("마음에 남은 말씀을 찾아보세요.")
+                    .font(.system(size: width < 560 ? 22 : 28, weight: .semibold))
+                Text("낱말로 찾거나, 책과 장·절을 입력해 바로 이동할 수 있어요.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, width < 560 ? 20 : 28).padding(.top, 28).padding(.bottom, 10)
             Group {
                 if width < 660 {
                     // 좁은 창: 찾는 칸을 위에, 범위·역본을 아래 줄에
@@ -30,7 +40,7 @@ struct SearchView: View {
                     HStack(spacing: 10) { field; scopePicker; translationPicker; searchButton }
                 }
             }
-            .padding(width < 560 ? 10 : 14)
+            .padding(.horizontal, width < 560 ? 20 : 28).padding(.vertical, 18)
             Divider()
 
             if let reference = ReferenceParser.parse(query.trimmingCharacters(in: .whitespaces)) {
@@ -57,28 +67,41 @@ struct SearchView: View {
 
             List(results) { verse in
                 Button { model.open(verse.ref) } label: {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Text(verse.ref.label).font(.caption.weight(.semibold)).foregroundStyle(Color.accentColor)
                         Text(highlighted(verse.text))
                             .font(model.textFont(language: model.translation(translationID)?.language ?? "ko", scale: 0.85))
                             .multilineTextAlignment(.leading)
                     }
-                    .padding(.vertical, 3)
+                    .padding(.vertical, 12)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .contextMenu { VerseMenu(refs: [verse.ref]) }
             }
+            .scrollContentBackground(.hidden)
+            .background(BibleStyle.paper)
             .overlay {
                 if !searched.isEmpty && results.isEmpty {
                     ContentUnavailableView.search(text: searched)
                 } else if searched.isEmpty {
-                    ContentUnavailableView("성경에서 찾기", systemImage: "magnifyingglass",
-                                           description: Text("띄어쓰기가 달라도 찾아요. 여러 낱말을 띄어 쓰면 모두 들어간 절을 찾아요."))
+                    VStack(spacing: 18) {
+                        Image(systemName: "text.magnifyingglass").font(.system(size: 34, weight: .light)).foregroundStyle(BibleStyle.accent.opacity(0.7))
+                        Text("어떤 말씀을 찾고 계신가요?").font(.headline)
+                        Text("띄어쓰기가 달라도 찾아요. 여러 낱말을 띄어 쓰면\n모두 들어간 절을 찾아요.")
+                            .font(.callout).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                        HStack(spacing: 8) {
+                            ForEach(["사랑", "목자", "요3:16"], id: \.self) { word in
+                                Button(word) { query = word; run() }.buttonStyle(.bordered)
+                            }
+                        }
+                    }
+                    .padding(20)
                 }
             }
         }
+        .background(BibleStyle.canvas)
         .readWidth($width)
         .onAppear {
             if translationID.isEmpty { translationID = model.primaryID }
@@ -108,7 +131,7 @@ struct SearchView: View {
     }
 
     private var searchButton: some View {
-        Button("찾기", action: run).keyboardShortcut(.defaultAction)
+        Button("찾기", action: run).keyboardShortcut(.defaultAction).buttonStyle(.borderedProminent)
     }
 
     private var bookCounts: some View {

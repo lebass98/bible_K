@@ -24,17 +24,18 @@ struct YeollinBibleApp: App {
         .commands {
             CommandGroup(replacing: .newItem) {}
             CommandMenu("이동") {
-                Button("구절로 이동…") { model.showGoTo = true }
+                Button("목차검색…") { model.showGoTo = true }
                     .keyboardShortcut("l")
                 Button("찾기") { model.section = .search }
                     .keyboardShortcut("f")
                 Divider()
-                Button("이전 장") { model.goPrevious() }
+                Button(model.section == .hymns ? "이전 곡" : "이전 장") { model.goPrevious() }
                     .keyboardShortcut(.leftArrow, modifiers: .command)
-                Button("다음 장") { model.goNext() }
+                Button(model.section == .hymns ? "다음 곡" : "다음 장") { model.goNext() }
                     .keyboardShortcut(.rightArrow, modifiers: .command)
                 Divider()
-                ForEach(Array(AppSection.allCases.enumerated()), id: \.element) { index, section in
+                // ⌘1~⌘9 (아홉 개까지만 단축키를 붙임)
+                ForEach(Array(AppSection.allCases.prefix(9).enumerated()), id: \.element) { index, section in
                     Button(section.title) { model.section = section }
                         .keyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: .command)
                 }
@@ -84,11 +85,8 @@ struct ContentView: View {
     var body: some View {
         @Bindable var model = model
         NavigationSplitView(columnVisibility: $columns) {
-            List(AppSection.allCases, selection: $model.section) { section in
-                Label(section.title, systemImage: section.icon)
-                    .tag(section)
-            }
-            .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 240)
+            BibleSidebar()
+                .navigationSplitViewColumnWidth(min: 180, ideal: 220, max: 280)
         } detail: {
             Group {
                 switch model.section {
@@ -98,12 +96,17 @@ struct ContentView: View {
                 case .history: HistoryView()
                 case .plan: PlanView()
                 case .today: TodayView()
+                case .hymns: HymnView()
+                case .creeds: CreedView()
+                case .prayer: PrayerView()
                 case .thanks: ThanksView()
                 case .library: LibraryView()
                 }
             }
             .navigationTitle(model.section == .reader ? "열린성경" : model.section.title)
         }
+        .tint(BibleStyle.accent)
+        .accentColor(BibleStyle.accent)
         .readWidth($width)
         .onChange(of: width) { old, new in
             // 좁아지는 순간에만 접고, 넓어지는 순간에만 펼침 (사용자가 직접 연 목록은 그대로 둠)
@@ -111,7 +114,7 @@ struct ContentView: View {
             if old < Self.narrow, new >= Self.narrow, old > 0 { columns = .all }
         }
         .onAppear { if width > 0, width < Self.narrow { columns = .detailOnly } }
-        .sheet(isPresented: $model.showGoTo) { GoToSheet() }
+        .sheet(isPresented: $model.showGoTo) { BookIndexSheet() }
         .sheet(item: Binding(get: { model.cardVerses.map(CardRequest.init) }, set: { model.cardVerses = $0?.verses })) { request in
             CardMakerView(verses: request.verses)
         }
@@ -124,38 +127,4 @@ struct ContentView: View {
 struct CardRequest: Identifiable {
     let verses: [VerseRow]
     var id: Int { verses.first?.id ?? 0 }
-}
-
-/// ⌘L: "요3:16" 처럼 적어서 바로 가기
-struct GoToSheet: View {
-    @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
-    @Local private var text = ""
-    @Local private var failed = false
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("구절로 이동").font(.headline)
-            TextField("예: 요3:16, 시편 23, 롬 8:28", text: $text)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 320)
-                .onSubmit(go)
-            if failed {
-                Text("주소를 알아보지 못했어요. 책 이름과 장을 적어 주세요.")
-                    .font(.caption).foregroundStyle(.red)
-            }
-            HStack {
-                Spacer()
-                Button("취소") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("이동", action: go).keyboardShortcut(.defaultAction)
-            }
-        }
-        .padding(20)
-    }
-
-    private func go() {
-        guard let ref = ReferenceParser.parse(text) else { failed = true; return }
-        if ref.hasVerse { model.open(ref.start) } else { model.open(ref.chapter) }
-        dismiss()
-    }
 }

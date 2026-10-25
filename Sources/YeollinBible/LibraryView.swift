@@ -10,6 +10,9 @@ struct LibraryView: View {
     @Local private var busy = false
     @Local private var message: String?
     @Local private var confirmDelete: BibleTranslation?
+    @Local private var hymnBusy = false
+    @Local private var hymnMessage: String?
+    @Local private var confirmHymnDelete = false
 
     var body: some View {
         List {
@@ -73,6 +76,29 @@ struct LibraryView: View {
 
             SwiftUI.Section {
                 VStack(alignment: .leading, spacing: 8) {
+                    if model.hymns.isEmpty {
+                        Text("가져온 찬송가가 없어요. 악보 파일 폴더를 가져오면 ‘찬송가’ 화면에서 볼 수 있어요.")
+                            .font(.callout)
+                    } else {
+                        Text("‘\(model.hymns.name)’ \(model.hymns.hymns.count)곡 — 이 Mac에만 저장돼 있어요.")
+                            .font(.callout)
+                    }
+                    HStack {
+                        HymnImportButton(busy: $hymnBusy, message: $hymnMessage,
+                                         title: model.hymns.isEmpty ? "찬송가 폴더 가져오기…" : "다른 폴더로 바꾸기…")
+                        if !model.hymns.isEmpty {
+                            Button("찬송가 지우기", role: .destructive) { confirmHymnDelete = true }
+                        }
+                        if let hymnMessage { Text(hymnMessage).font(.callout).foregroundStyle(.secondary) }
+                    }
+                }
+                .padding(.vertical, 4)
+            } header: {
+                Text("찬송가")
+            }
+
+            SwiftUI.Section {
+                VStack(alignment: .leading, spacing: 8) {
                     Text("책갈피·형광펜·노트·감사·통독 기록을 파일 하나로 내보내고, 다른 Mac에서 가져올 수 있어요.")
                         .font(.callout)
                     HStack {
@@ -96,6 +122,12 @@ struct LibraryView: View {
                 }
             } header: {
                 Text("데이터 출처")
+            }
+        }
+        .confirmationDialog("가져온 찬송가를 모두 지울까요?", isPresented: $confirmHymnDelete) {
+            Button("지우기", role: .destructive) {
+                model.hymns.removeAll()
+                model.currentHymn = nil
             }
         }
         .sheet(item: $pending) { item in

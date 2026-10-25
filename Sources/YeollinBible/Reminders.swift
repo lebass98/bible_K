@@ -5,12 +5,24 @@ import UserNotifications
 /// 매일 알림 (통독 · 오늘의 말씀). 내용이 날마다 달라서 앞으로 14일 치를 미리 예약함
 enum Reminders {
     enum Kind: String {
-        case plan, dailyVerse
+        case plan, dailyVerse, prayer
 
-        var title: String { self == .plan ? "통독 알림" : "오늘의 말씀 알림" }
+        var title: String {
+            switch self {
+            case .plan: return "통독 알림"
+            case .dailyVerse: return "오늘의 말씀 알림"
+            case .prayer: return "기도 알림"
+            }
+        }
         var enabledKey: String { "reminder.\(rawValue).on" }
         var timeKey: String { "reminder.\(rawValue).minutes" }
-        var defaultMinutes: Int { self == .plan ? 21 * 60 : 7 * 60 }
+        var defaultMinutes: Int {
+            switch self {
+            case .plan: return 21 * 60
+            case .dailyVerse: return 7 * 60
+            case .prayer: return 6 * 60 + 30
+            }
+        }
     }
 
     static func isOn(_ kind: Kind) -> Bool { UserDefaults.standard.bool(forKey: kind.enabledKey) }
@@ -22,7 +34,7 @@ enum Reminders {
     static func reschedule(model: AppModel) {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
-        let wantsAny = isOn(.plan) || isOn(.dailyVerse)
+        let wantsAny = isOn(.plan) || isOn(.dailyVerse) || isOn(.prayer)
         guard wantsAny else { return }
 
         // 알림에 넣을 글은 여기(메인 스레드)에서 미리 만들어 둠
@@ -38,6 +50,12 @@ enum Reminders {
                     items.append(("plan-\(offset)", "오늘 통독 · \(index + 1)일째", ReadingPlan.label(planDays[index]),
                                   components(day, minutes(.plan))))
                 }
+            }
+            if isOn(.prayer) {
+                let open = model.user.data.prayers.filter { $0.answered == nil }.count
+                let phrase = Extras.daily(Extras.phrases.prayer, on: day) ?? Extras.daily(PrayerView.defaultPhrases, on: day) ?? ""
+                let body = Extras.personalize(phrase) + (open > 0 ? " (기도 제목 \(open)개)" : "")
+                items.append(("prayer-\(offset)", "기도할 시간", body, components(day, minutes(.prayer))))
             }
             if isOn(.dailyVerse), let ref = DailyVerses.reference(for: day) {
                 let text = model.verses(model.primaryID, from: ref.start, to: ref.end ?? ref.start).map(\.text).joined(separator: " ")

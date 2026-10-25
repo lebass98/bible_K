@@ -34,13 +34,15 @@ enum DailyVerses {
     static func reference(for date: Date) -> ReferenceParser.Reference? {
         let calendar = Calendar.current
         let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
-        return ReferenceParser.parse(references[day % references.count])
+        let list = Extras.dailyVerses ?? references
+        return ReferenceParser.parse(list[day % list.count])
     }
 }
 
 struct TodayView: View {
     @Environment(AppModel.self) private var model
     @Local private var date = Date()
+    @Local private var width: CGFloat = 900
 
     var body: some View {
         let reference = DailyVerses.reference(for: date)
@@ -48,6 +50,10 @@ struct TodayView: View {
         let language = model.primary?.language ?? "ko"
 
         VStack(spacing: 24) {
+            VStack(spacing: 6) {
+                Text("A MOMENT IN THE WORD").font(.system(size: 10, weight: .semibold)).tracking(2).foregroundStyle(BibleStyle.accent)
+                Text("오늘, 말씀 한 구절.").font(.system(size: 26, weight: .semibold))
+            }
             HStack {
                 Button { shift(-1) } label: { Image(systemName: "chevron.left") }
                 Text(date, format: .dateTime.year().month().day().weekday())
@@ -73,6 +79,10 @@ struct TodayView: View {
                     Text(label(reference)).font(.title3.weight(.semibold)).foregroundStyle(.secondary)
                 }
             }
+            .padding(width < 560 ? 20 : 36)
+            .frame(maxWidth: 740)
+            .background(BibleStyle.paper, in: RoundedRectangle(cornerRadius: 20))
+            .overlay { RoundedRectangle(cornerRadius: 20).strokeBorder(BibleStyle.rule, lineWidth: 1) }
             Spacer()
 
             if let reference {
@@ -90,6 +100,7 @@ struct TodayView: View {
         .padding(.horizontal, 20)
         .padding(.vertical, 28)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .readWidth($width)
     }
 
     private func actions(_ reference: ReferenceParser.Reference, _ refs: [VerseRef]) -> some View {
@@ -135,6 +146,14 @@ struct ThanksView: View {
                 Text("오늘 감사한 일을 한 줄로 적어 보세요").font(.title3.bold())
                 Text(Self.prompts[(Calendar.current.ordinality(of: .day, in: .era, for: Date()) ?? 0) % Self.prompts.count])
                     .foregroundStyle(.secondary)
+                if let quote = Extras.daily(Extras.phrases.thanks) {
+                    Label(quote, systemImage: "quote.opening")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.secondary.opacity(0.08)))
+                }
                 HStack {
                     TextField("감사합니다…", text: $draft)
                         .textFieldStyle(.roundedBorder)

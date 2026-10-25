@@ -6,7 +6,7 @@ import SwiftUI
 
 /// 왼쪽 목록의 화면들
 enum AppSection: String, CaseIterable, Identifiable {
-    case reader, search, records, history, plan, today, thanks, library
+    case reader, search, records, history, plan, today, hymns, creeds, prayer, thanks, library
     var id: String { rawValue }
 
     var title: String {
@@ -17,6 +17,9 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .history: return "읽은 기록"
         case .plan: return "통독"
         case .today: return "오늘의 말씀"
+        case .hymns: return "찬송가"
+        case .creeds: return "신앙고백"
+        case .prayer: return "기도"
         case .thanks: return "한 줄 감사"
         case .library: return "역본 관리"
         }
@@ -30,6 +33,9 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .history: return "clock.arrow.circlepath"
         case .plan: return "checklist"
         case .today: return "sun.max"
+        case .hymns: return "music.note.list"
+        case .creeds: return "text.book.closed"
+        case .prayer: return "hands.sparkles"
         case .thanks: return "heart.text.square"
         case .library: return "books.vertical"
         }
@@ -46,6 +52,13 @@ final class AppModel {
     private(set) var translations: [BibleTranslation] = []
     let user = UserStore()
     let speech = SpeechReader()
+    let hymns = HymnStore()
+    let audio = AudioBible()
+
+    /// 보고 있는 찬송가 장 번호
+    var currentHymn: Int? = UserDefaults.standard.object(forKey: "currentHymn") as? Int {
+        didSet { defaults.set(currentHymn, forKey: "currentHymn") }
+    }
 
     // MARK: 화면 상태
 
@@ -118,6 +131,17 @@ final class AppModel {
 
         reloadTranslations()
         if translation(primaryID) == nil { primaryID = translations.first?.id ?? "kor" }
+        audio.onFinished = { [weak self] in
+            // 장을 다 들으면 같은 음원으로 다음 장 (음원이 없으면 멈춤)
+            guard let self, let current = self.audio.chapter, let prefix = self.audio.prefix,
+                  self.speech.continueToNextChapter, let next = current.next,
+                  self.audio.files[AudioBible.stem(prefix, next)] != nil else {
+                self?.audio.stop()
+                return
+            }
+            if self.location == current { self.open(next) }
+            self.audio.play(next, prefix: prefix)
+        }
         speech.onChapterFinished = { [weak self] in
             guard let self, let next = self.location.next else { self?.speech.stop(); return }
             self.open(next)
@@ -126,6 +150,29 @@ final class AppModel {
     }
 
     // MARK: 음성 읽기
+
+    /// 듣기: 녹음 음원이 있으면 음원으로, 없으면 기계 음성으로
+    func listen(from start: VerseRef?) {
+        if audio.preferRecorded, let prefix = audio.preferredPrefix(translation: primaryID, chapter: location) {
+            speech.stop()
+            if audio.isActive, audio.chapter == location, audio.prefix == prefix, let start {
+                audio.seek(toVerse: start.verse)   // 듣고 있는 장이면 그 절로 건너뜀
+                if !audio.isPlaying { audio.togglePause() }
+            } else {
+                audio.play(location, prefix: prefix, from: start?.verse)
+            }
+        } else {
+            audio.stop()
+            speak(from: start)
+        }
+    }
+
+    var isListening: Bool { speech.isSpeaking || audio.isActive }
+
+    func stopListening() {
+        speech.stop()
+        audio.stop()
+    }
 
     func speak(from start: VerseRef?) {
         speech.speak(chapter(primaryID, location), language: primary?.language ?? "ko", from: start)
@@ -170,6 +217,11 @@ final class AppModel {
     }
 
     func strong(_ id: String) -> StrongEntry? { bundled?.strong(id) }
+    /// 읽는 역본에 딸린 관주·각주
+    func verseNotes(_ ref: VerseRef, tr: String? = nil) -> [VerseNote] {
+        let id = tr ?? primaryID
+        return database(for: id)?.notes(id, ref) ?? []
+    }
     func crossRefs(_ ref: VerseRef) -> [CrossRef] { bundled?.crossRefs(ref) ?? [] }
 
     // MARK: 이동
@@ -187,8 +239,22 @@ final class AppModel {
         scrollTarget = VerseRef(book: chapter.book, chapter: chapter.chapter, verse: 1)
     }
 
-    func goNext() { if let next = location.next { open(next) } }
-    func goPrevious() { if let prev = location.previous { open(prev) } }
+    /// ⌘→ ⌘←: 찬송가 화면이면 다음·이전 곡, 아니면 다음·이전 장
+    func goNext() {
+        if section == .hymns { moveHymn(1) } else if let next = location.next { open(next) }
+    }
+
+    func goPrevious() {
+        if section == .hymns { moveHymn(-1) } else if let prev = location.previous { open(prev) }
+    }
+
+    func moveHymn(_ step: Int) {
+        let list = hymns.hymns
+        guard !list.isEmpty else { return }
+        let index = list.firstIndex { $0.number == currentHymn } ?? -1
+        let target = min(max(index + step, 0), list.count - 1)
+        currentHymn = list[target].number
+    }
 
     // MARK: 고른 절로 하는 일
 

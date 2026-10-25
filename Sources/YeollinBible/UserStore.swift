@@ -77,6 +77,8 @@ struct UserData: Codable {
     var thanks: [ThanksEntry] = []
     var plan: PlanProgress?
     var lastLocation = ChapterRef(book: 1, chapter: 1)
+    var hymnFavorites: Set<Int> = []
+    var prayers: [PrayerItem] = []
 
     // 예전 백업 파일에 없는 항목이 있어도 읽히게
     init() {}
@@ -89,6 +91,8 @@ struct UserData: Codable {
         thanks = try c.decodeIfPresent([ThanksEntry].self, forKey: .thanks) ?? []
         plan = try c.decodeIfPresent(PlanProgress.self, forKey: .plan)
         lastLocation = try c.decodeIfPresent(ChapterRef.self, forKey: .lastLocation) ?? ChapterRef(book: 1, chapter: 1)
+        hymnFavorites = try c.decodeIfPresent(Set<Int>.self, forKey: .hymnFavorites) ?? []
+        prayers = try c.decodeIfPresent([PrayerItem].self, forKey: .prayers) ?? []
     }
 }
 
@@ -193,6 +197,12 @@ final class UserStore {
         }
         data.history.insert(HistoryItem(chapter: chapter), at: 0)
         if data.history.count > 500 { data.history.removeLast(data.history.count - 500) }
+    }
+
+    // MARK: 찬송가
+
+    func toggleHymnFavorite(_ number: Int) {
+        if data.hymnFavorites.contains(number) { data.hymnFavorites.remove(number) } else { data.hymnFavorites.insert(number) }
     }
 
     // MARK: 백업
